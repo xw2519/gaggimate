@@ -2,6 +2,30 @@
 
 This directory contains various utility scripts for development and debugging.
 
+## USB Flashing
+
+### `flash.py`
+
+Flashes the display, controller or headless board over USB, like the web flasher on gaggimate.eu. It runs with
+[uv](https://docs.astral.sh/uv/), which installs esptool on first use.
+
+```bash
+uv run scripts/flash.py ports                                    # list serial ports, ESP32-S3 boards are marked
+uv run scripts/flash.py flash display --source nightly           # bootloader + partitions + app from the nightly release
+uv run scripts/flash.py flash controller --source release --version v1.9.0
+uv run scripts/flash.py flash display --source pr --pr 123 --full   # PR preview build, also writes LittleFS (wipes profiles)
+uv run scripts/flash.py flash display                            # local .pio/build output
+uv run scripts/flash.py monitor --seconds 20                     # print the boot log
+uv run scripts/flash.py ota --host 192.168.1.11 --channel nightly   # update controller + display through the display's OTA
+```
+
+`ota` needs the display on WiFi with internet; the display downloads the release itself and pushes the controller firmware
+over BLE. On macOS run it with `uv run --python /opt/homebrew/bin/python3 ...`, because the uv-managed Python has no
+Local Network permission.
+
+The port is auto-detected when exactly one ESP32-S3 is attached. Downloads are cached in `~/.cache/gaggimate-flash/`.
+Set `GAGGIMATE_REPO=owner/repo` or pass `--repo` to flash builds from a fork.
+
 ## Core Dump Analysis
 
 ### `analyze_coredump.py` / `analyze_coredump.sh`

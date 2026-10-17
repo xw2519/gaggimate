@@ -102,6 +102,10 @@ class DefaultUI {
     void updateState();
     bool isProShot();
     void updateSystemStatus();
+    // Standby greeting ("Good Morning Xin") shown in place of the logo
+    void setupStandbyGreeting();
+    void updateStandbyGreeting(const struct tm *timeinfo);
+    void applyStandbyGreetingTheme();
     void updateWarnings();
     void updateProfileInfo();
     void updateBoiler();
@@ -243,6 +247,8 @@ class DefaultUI {
 
     // Standby brightness control
     unsigned long standbyEnterTime = 0;
+
+    lv_obj_t *greetingLabel = nullptr;
 
     xTaskHandle taskHandle;
     static void loopTask(void *arg);
