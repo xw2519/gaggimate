@@ -27,6 +27,8 @@ static EffectManager effect_mgr;
 
 static constexpr uint32_t STARTUP_FADE_MS = 1000; // standby fade-in duration on power-up
 
+static constexpr const char *GREETING_NAME = "Xin"; // name shown in the standby greeting
+
 static constexpr int32_t GAUGE_TICK_LONG = 25;      // meter tick length on most screens
 static constexpr int32_t GAUGE_TICK_SHORT = 10;     // shortened tick length on profile / new-menu screens
 static constexpr uint32_t GAUGE_TICK_ANIM_MS = 300; // tick length transition duration
@@ -537,6 +539,7 @@ void DefaultUI::setupPanel() {
     gaugeSetpointsInside = controller->areGaugeSetpointsInside();
     applyGaugeSetpointStyle(gaugeSetpointsInside);
     setupState();
+    setupStandbyGreeting();
     applyTheme();
     ui_tick();
 
@@ -779,13 +782,57 @@ void DefaultUI::updateSystemStatus() {
 
     char timeBuf[12] = "";
     struct tm timeinfo;
-    if (getLocalTime(&timeinfo, 5)) {
+    const bool haveTime = getLocalTime(&timeinfo, 5);
+    if (haveTime) {
         strftime(timeBuf, sizeof(timeBuf), settings.isClock24hFormat() ? "%H:%M" : "%I:%M %p", &timeinfo);
         if (!settings.isClock24hFormat() && timeBuf[0] == '0')
             timeBuf[0] = ' ';
     }
     if (stringChanged(systemStatus.time(), timeBuf))
         systemStatus.time(timeBuf);
+    updateStandbyGreeting(haveTime ? &timeinfo : nullptr);
+}
+
+void DefaultUI::setupStandbyGreeting() {
+    if (objects.standby_screen == nullptr || greetingLabel != nullptr)
+        return;
+    if (objects.obj3 != nullptr)
+        lv_obj_add_flag(objects.obj3, LV_OBJ_FLAG_HIDDEN); // the logo
+    greetingLabel = lv_label_create(objects.standby_screen);
+    lv_obj_set_size(greetingLabel, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
+    lv_obj_set_style_text_font(greetingLabel, &lv_font_montserrat_48, LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_text_align(greetingLabel, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_align(greetingLabel, LV_ALIGN_CENTER, 0, 0);
+    lv_label_set_text(greetingLabel, "");
+    applyStandbyGreetingTheme();
+}
+
+void DefaultUI::applyStandbyGreetingTheme() {
+    if (greetingLabel == nullptr)
+        return;
+    lv_obj_set_style_text_color(greetingLabel, lv_color_hex(theme_colors[eez_flow_get_selected_theme_index()][0]),
+                                LV_PART_MAIN | LV_STATE_DEFAULT);
+}
+
+void DefaultUI::updateStandbyGreeting(const struct tm *timeinfo) {
+    if (greetingLabel == nullptr)
+        return;
+    const char *period = nullptr;
+    if (timeinfo != nullptr) {
+        if (timeinfo->tm_hour < 12)
+            period = "Morning";
+        else if (timeinfo->tm_hour < 18)
+            period = "Afternoon";
+        else
+            period = "Evening";
+    }
+    char greeting[48];
+    if (period != nullptr)
+        snprintf(greeting, sizeof(greeting), "Good %s\n%s", period, GREETING_NAME);
+    else
+        snprintf(greeting, sizeof(greeting), "Hello\n%s", GREETING_NAME);
+    if (stringChanged(lv_label_get_text(greetingLabel), greeting))
+        lv_label_set_text(greetingLabel, greeting);
 }
 
 void DefaultUI::updateWarnings() {
@@ -1362,6 +1409,7 @@ void DefaultUI::applyTheme() {
         // Via EEZ so its selected index updates too; on-demand screens (new profile) read it when created.
         static const char *const THEME_NAMES[] = {"Dark", "Light", "AmoledDark"};
         eez_flow_set_theme(THEME_NAMES[currentThemeMode]);
+        applyStandbyGreetingTheme();
         applyShotChartTheme();
         if (profileChart != nullptr) {
             for (int i = 0; i < 2; i++)
